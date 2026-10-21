@@ -28,24 +28,35 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Check Android SDK tools
+      - name: Locate Android SDK manager
+        shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -name sdkmanager -type f
-          find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -name sdkmanager -type f
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager was not found under $ANDROID_HOME/cmdline-tools"
+            exit 1
+          fi
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "Using $SDKMANAGER"
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: |
+          # Disable pipefail only for this pipeline: sdkmanager may finish
+          # reading licenses before 'yes' exits, causing yes to report SIGPIPE.
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
+          sdkmanager_status=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$sdkmanager_status" -ne 0 ]; then
+            echo "::error::sdkmanager --licenses failed with exit code $sdkmanager_status"
+            exit "$sdkmanager_status"
+          fi
 
       - name: Install Android SDK 35
         shell: bash
         run: |
-          set -o pipefail
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager was not found under $ANDROID_HOME/cmdline-tools"
-            exit 1
-          fi
-          echo "Using $SDKMANAGER"
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
