@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Klikacz ikony Świat</string>
+    <string name="accessibility_description">Wyszukuje ikonę na ekranie i klika ją, a także nagrywa i odtwarza gesty dotykowe (makra). Używa nakładki na ekran oraz wykonywania gestów.</string>
+</resources>
